@@ -25,14 +25,37 @@
         }
         
         .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: conic-gradient(
+                #ff0000 0deg 90deg,
+                #ffffff 90deg 180deg,
+                #0000ff 180deg 270deg,
+                #ffff00 270deg 360deg
+            );
+            border: 2px solid #333;
+            border-radius: 4px;
+            transform: rotate(-15deg);
+        }
+        
+        .logo-text {
             font-family: 'Orbitron', sans-serif;
-            text-shadow: 0 0 10px var(--primary-color);
-            letter-spacing: 1px;
+            font-weight: bold;
+            font-size: 1.5rem;
+            background: linear-gradient(to right, #3b82f6, #10b981);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
         
         .timer-display {
             font-family: 'Orbitron', monospace;
-            text-shadow: 0 0 15px var(--primary-color);
         }
         
         .scramble-display {
@@ -53,6 +76,7 @@
             border: 1px solid var(--primary-color);
             transition: all 0.3s ease;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
         
         .timer-touch-area:hover {
@@ -73,17 +97,14 @@
         
         .timer-red {
             color: #ef4444;
-            text-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
         }
         
         .timer-green {
             color: #10b981;
-            text-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
         }
         
         .timer-normal {
             color: white;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
         }
         
         .panel {
@@ -357,8 +378,9 @@
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
             <div class="flex items-center">
-                <div class="logo text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent">
-                    SpeedTimer
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <div class="logo-text">SpeedTimer</div>
                 </div>
             </div>
             
@@ -754,14 +776,17 @@
                 if (e.code === 'Space' || e.key === ' ') {
                     e.preventDefault();
                     
-                    if (!holdingTimer && !running && !ready && !inspecting) {
+                    // Prevent double triggers
+                    if (holdingTimer) return;
+                    
+                    if (!running && !ready && !inspecting) {
                         if (inspectionTime === '15') {
                             startInspection();
                         } else {
                             prepareTimer();
                         }
-                        holdingTimer = true;
                     }
+                    holdingTimer = true;
                 }
             }
             
@@ -769,11 +794,13 @@
                 if (e.code === 'Space' || e.key === ' ') {
                     e.preventDefault();
                     
-                    if (holdingTimer && ready && !running && !inspecting) {
-                        startTimer();
-                    }
+                    if (!holdingTimer) return;
                     
-                    if (holdingTimer && inspecting) {
+                    if (running) {
+                        stopTimer();
+                    } else if (ready && !inspecting) {
+                        startTimer();
+                    } else if (inspecting) {
                         stopInspection();
                     }
                     
@@ -783,6 +810,8 @@
             
             function handleTouchStart(e) {
                 e.preventDefault();
+                if (holdingTimer) return;
+                
                 if (!running && !ready && !inspecting) {
                     if (inspectionTime === '15') {
                         startInspection();
@@ -795,11 +824,13 @@
             
             function handleTouchEnd(e) {
                 e.preventDefault();
-                if (holdingTimer && ready && !running && !inspecting) {
-                    startTimer();
-                }
+                if (!holdingTimer) return;
                 
-                if (holdingTimer && inspecting) {
+                if (running) {
+                    stopTimer();
+                } else if (ready && !inspecting) {
+                    startTimer();
+                } else if (inspecting) {
                     stopInspection();
                 }
                 
@@ -855,7 +886,6 @@
                 timerDisplay.textContent = penalty ? '+2' : '0.00';
                 timerTouchArea.classList.add('ready-state');
                 timerInstruction.textContent = 'Mantén presionado... Suelta para iniciar';
-                holdingTimer = true;
             }
             
             function startTimer() {
@@ -877,7 +907,7 @@
             }
             
             function stopTimerOnKey(e) {
-                if (running) {
+                if (running && (e.code === 'Space' || e.key === ' ')) {
                     e.preventDefault();
                     stopTimer();
                 }
