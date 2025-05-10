@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeedTimer - Entrenamiento Avanzado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --accent-color: #f59e0b;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+        }
+        
+        .panel {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--primary-color);
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .metronome-active {
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { box-shadow: 0 0 5px var(--accent-color); }
+            to { box-shadow: 0 0 20px var(--accent-color); }
+        }
+        
+        .heatmap-cell {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="container mx-auto max-w-6xl space-y-6">
+        <!-- Header -->
+        <div class="flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-blue-400">
+                <i class="fas fa-tachometer-alt mr-2"></i>Modo Entrenamiento
+            </h1>
+            <a href="index.html" class="btn-primary px-4 py-2 rounded-lg flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i>Volver al Timer
+            </a>
+        </div>
+        
+        <!-- Sección de Metrónomo -->
+        <div class="panel p-5">
+            <h2 class="text-xl font-semibold mb-4 text-blue-400">
+                <i class="fas fa-metronome mr-2"></i>Metrónomo (TPS)
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div class="mb-4">
+                        <label class="block text-sm mb-2">Velocidad (giros/segundo)</label>
+                        <input type="range" id="tps-range" min="1" max="10" step="0.5" value="3" class="w-full">
+                        <div class="text-center mt-2">
+                            <span id="tps-value" class="text-2xl font-bold">3.0</span> TPS
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button id="start-metronome" class="btn-primary px-4 py-2 rounded-lg">
+                            <i class="fas fa-play mr-2"></i>Iniciar
+                        </button>
+                        <button id="stop-metronome" class="btn-danger px-4 py-2 rounded-lg bg-gray-700">
+                            <i class="fas fa-stop mr-2"></i>Detener
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <div id="metronome-visual" class="w-32 h-32 rounded-full border-4 border-blue-400 flex items-center justify-center text-4xl">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sección de Entrenamiento por Fases -->
+        <div class="panel p-5">
+            <h2 class="text-xl font-semibold mb-4 text-blue-400">
+                <i class="fas fa-layer-group mr-2"></i>Entrenamiento por Fases
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <button class="phase-btn py-3 rounded-lg" data-phase="cross">
+                    <i class="fas fa-cross mr-2"></i>Cruz
+                </button>
+                <button class="phase-btn py-3 rounded-lg" data-phase="f2l">
+                    <i class="fas fa-th-large mr-2"></i>F2L
+                </button>
+                <button class="phase-btn py-3 rounded-lg" data-phase="ll">
+                    <i class="fas fa-star mr-2"></i>Last Layer
+                </button>
+            </div>
+            
+            <div id="phase-timer-container" class="hidden">
+                <div class="flex justify-center mb-4">
+                    <div id="phase-timer" class="text-5xl font-mono">0.00</div>
+                </div>
+                <div class="flex justify-center gap-4">
+                    <button id="phase-start" class="btn-primary px-6 py-3 rounded-lg">
+                        <i class="fas fa-flag mr-2"></i>Iniciar Fase
+                    </button>
+                    <button id="phase-stop" class="btn-danger px-6 py-3 rounded-lg">
+                        <i class="fas fa-stop-circle mr-2"></i>Terminar
+                    </button>
+                </div>
+            </div>
+            
+            <div id="phase-stats" class="mt-6 hidden">
+                <h3 class="font-semibold mb-2">Estadísticas por Fase</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="stats-card">
+                        <div class="text-sm">Cruz</div>
+                        <div class="text-xl font-bold" id="cross-avg">0.00</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="text-sm">F2L</div>
+                        <div class="text-xl font-bold" id="f2l-avg">0.00</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="text-sm">Last Layer</div>
+                        <div class="text-xl font-bold" id="ll-avg">0.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Heatmap de Tiempos -->
+        <div class="panel p-5">
+            <h2 class="text-xl font-semibold mb-4 text-blue-400">
+                <i class="fas fa-fire mr-2"></i>Heatmap de Tiempos
+            </h2>
+            <div class="overflow-auto">
+                <div id="heatmap" class="min-w-full" style="height: 300px;"></div>
+            </div>
+            <div class="mt-4 text-sm text-gray-400">
+                <i class="fas fa-info-circle mr-2"></i>Áreas rojas indican mayor inconsistencia.
+            </div>
+        </div>
+        
+        <!-- Gráfico de Splits -->
+        <div class="panel p-5">
+            <h2 class="text-xl font-semibold mb-4 text-blue-400">
+                <i class="fas fa-chart-bar mr-2"></i>Análisis de Splits
+            </h2>
+            <div class="h-64">
+                <canvas id="splits-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables
+            let metronomeInterval;
+            let phaseTimerInterval;
+            let phaseStartTime;
+            let currentPhase = null;
+            let phaseTimes = {
+                cross: [],
+                f2l: [],
+                ll: []
+            };
+            
+            // Elementos DOM
+            const tpsRange = document.getElementById('tps-range');
+            const tpsValue = document.getElementById('tps-value');
+            const startMetronomeBtn = document.getElementById('start-metronome');
+            const stopMetronomeBtn = document.getElementById('stop-metronome');
+            const metronomeVisual = document.getElementById('metronome-visual');
+            const phaseBtns = document.querySelectorAll('.phase-btn');
+            const phaseTimerContainer = document.getElementById('phase-timer-container');
+            const phaseTimer = document.getElementById('phase-timer');
+            const phaseStartBtn = document.getElementById('phase-start');
+            const phaseStopBtn = document.getElementById('phase-stop');
+            const phaseStats = document.getElementById('phase-stats');
+            const crossAvg = document.getElementById('cross-avg');
+            const f2lAvg = document.getElementById('f2l-avg');
+            const llAvg = document.getElementById('ll-avg');
+            
+            // Event Listeners
+            tpsRange.addEventListener('input', updateTpsValue);
+            startMetronomeBtn.addEventListener('click', startMetronome);
+            stopMetronomeBtn.addEventListener('click', stopMetronome);
+            phaseBtns.forEach(btn => btn.addEventListener('click', selectPhase));
+            phaseStartBtn.addEventListener('click', startPhaseTimer);
+            phaseStopBtn.addEventListener('click', stopPhaseTimer);
+            
+            // Inicialización
+            initHeatmap();
+            initSplitsChart();
+            loadPhaseData();
+            
+            // Funciones
+            function updateTpsValue() {
+                tpsValue.textContent = tpsRange.value;
+            }
+            
+            function startMetronome() {
+                const tps = parseFloat(tpsRange.value);
+                const interval = 1000 / tps;
+                
+                metronomeVisual.classList.add('metronome-active');
+                metronomeInterval = setInterval(() => {
+                    // Rotar el icono y alternar color
+                    metronomeVisual.style.transform = `rotate(${metronomeVisual.dataset.rot || 0 + 45}deg)`;
+                    metronomeVisual.dataset.rot = (parseInt(metronomeVisual.dataset.rot || 0) + 45) % 360;
+                    
+                    // Cambiar color para el "click" audible
+                    metronomeVisual.style.borderColor = metronomeVisual.style.borderColor === 'var(--accent-color)' ? 
+                        'var(--primary-color)' : 'var(--accent-color)';
+                    
+                    // Beep (simulado)
+                    if (typeof AudioContext !== 'undefined') {
+                        const audioCtx = new AudioContext();
+                        const oscillator = audioCtx.createOscillator();
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                        oscillator.connect(audioCtx.destination);
+                        oscillator.start();
+                        oscillator.stop(audioCtx.currentTime + 0.05);
+                    }
+                }, interval);
+                
+                startMetronomeBtn.disabled = true;
+                stopMetronomeBtn.disabled = false;
+            }
+            
+            function stopMetronome() {
+                clearInterval(metronomeInterval);
+                metronomeVisual.classList.remove('metronome-active');
+                metronomeVisual.style.borderColor = 'var(--primary-color)';
+                startMetronomeBtn.disabled = false;
+                stopMetronomeBtn.disabled = true;
+            }
+            
+            function selectPhase(e) {
+                currentPhase = e.currentTarget.dataset.phase;
+                phaseBtns.forEach(btn => btn.classList.remove('bg-blue-600'));
+                e.currentTarget.classList.add('bg-blue-600');
+                phaseTimerContainer.classList.remove('hidden');
+            }
+            
+            function startPhaseTimer() {
+                phaseStartTime = Date.now();
+                phaseTimerInterval = setInterval(() => {
+                    const elapsed = (Date.now() - phaseStartTime) / 1000;
+                    phaseTimer.textContent = elapsed.toFixed(2);
+                }, 10);
+                
+                phaseStartBtn.disabled = true;
+            }
+            
+            function stopPhaseTimer() {
+                clearInterval(phaseTimerInterval);
+                const elapsed = (Date.now() - phaseStartTime) / 1000;
+                
+                // Guardar tiempo
+                phaseTimes[currentPhase].push(elapsed);
+                savePhaseData();
+                updatePhaseStats();
+                
+                // Resetear UI
+                phaseTimer.textContent = '0.00';
+                phaseStartBtn.disabled = false;
+                phaseStats.classList.remove('hidden');
+            }
+            
+            function savePhaseData() {
+                localStorage.setItem('phase-times', JSON.stringify(phaseTimes));
+            }
+            
+            function loadPhaseData() {
+                const savedData = localStorage.getItem('phase-times');
+                if (savedData) {
+                    phaseTimes = JSON.parse(savedData);
+                    updatePhaseStats();
+                }
+            }
+            
+            function updatePhaseStats() {
+                const calcAvg = times => {
+                    if (times.length === 0) return 0;
+                    const sum = times.reduce((a, b) => a + b, 0);
+                    return (sum / times.length).toFixed(2);
+                };
+                
+                crossAvg.textContent = calcAvg(phaseTimes.cross);
+                f2lAvg.textContent = calcAvg(phaseTimes.f2l);
+                llAvg.textContent = calcAvg(phaseTimes.ll);
+            }
+            
+            function initHeatmap() {
+                // Datos de ejemplo (en una implementación real, usarías datos reales)
+                const heatmapData = {
+                    '0-5': 10, '5-10': 5, '10-15': 3,
+                    '15-20': 8, '20-25': 15, '25-30': 20,
+                    '30-35': 12, '35-40': 7, '40+': 25
+                };
+                
+                const heatmap = document.getElementById('heatmap');
+                const maxValue = Math.max(...Object.values(heatmapData));
+                
+                for (const [range, value] of Object.entries(heatmapData)) {
+                    const intensity = Math.floor((value / maxValue) * 100);
+                    const color = `hsl(0, 100%, ${100 - intensity}%)`;
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell inline-block m-1 p-4 rounded';
+                    cell.style.backgroundColor = color;
+                    cell.title = `${range}s: ${value} solves`;
+                    heatmap.appendChild(cell);
+                }
+            }
+            
+            function initSplitsChart() {
+                const ctx = document.getElementById('splits-chart').getContext('2d');
+                
+                // Datos de ejemplo
+                const solves = [
+                    { cross: 3.2, f2l: 8.5, ll: 4.3 },
+                    { cross: 2.8, f2l: 7.9, ll: 3.7 },
+                    { cross: 3.5, f2l: 9.2, ll: 5.1 },
+                    { cross: 2.9, f2l: 8.1, ll: 4.8 },
+                    { cross: 3.1, f2l: 8.3, ll: 4.0 }
+                ];
+                
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: solves.map((_, i) => `Solve ${i + 1}`),
+                        datasets: [
+                            {
+                                label: 'Cruz',
+                                data: solves.map(s => s.cross),
+                                backgroundColor: '#3b82f6'
+                            },
+                            {
+                                label: 'F2L',
+                                data: solves.map(s => s.f2l),
+                                backgroundColor: '#10b981'
+                            },
+                            {
+                                label: 'Last Layer',
+                                data: solves.map(s => s.ll),
+                                backgroundColor: '#f59e0b'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: false }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
